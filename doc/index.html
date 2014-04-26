@@ -1,0 +1,172 @@
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>贴吧android统一WebView</title>
+    <style type="text/css">
+    	div {
+    		margin-bottom: 20px;
+    	}
+    	button,a {
+            display: block;
+    		margin: 5px 0 5px 30px;
+    	}
+        button {
+            height: 30px;
+            padding: 5px 10px;
+        }
+        pre.x-code {
+            color:#a00;
+            line-height: 1.3em;
+        }
+        .x-module {
+            margin-bottom: 30px;
+            border: 1px solid #aaa;
+            padding: 0 10px;
+        }
+        ul.x-sider {
+            position: fixed;
+            top: 20px;
+            left: 0px;
+            width: 290px;
+            font-size: 14px;
+            margin:0;
+            padding:0; 
+        }
+        ul li {
+            list-style: none;
+            margin:10px 0 ;
+            padding:0; 
+        }
+        li a {
+            margin-left:10px;
+        }
+        body {
+            padding-left: 300px;
+            line-height: 1.5em;
+        }
+    </style>
+    <script>
+        var closePage = function(){
+            TbJsBridge.closePage("我来自FE的自定义消息！");
+        };
+    </script>
+</head>
+<body>
+    <ul class="x-sider">
+        <li><a href="#close-webview">一、关闭webview</a></li>
+        <li><a href="#custom-js-interface">二、自定义js接口(非TbJsBridge)</a></li>
+        <li><a href="#bring-cookie">三、在webview中携带cookie</a></li>
+    </ul>
+
+
+	<div class="x-module" id="close-webview">
+		<h1>一、关闭webview</h1>
+        <h2>1、通过javascript interface的方式</h2>
+        <h3>1）java代码(RD)：</h3>
+<pre class="x-code">
+    TbWebViewActivity.startActivity(mContext,
+        "http://www.baidu.com",
+        null,   // null表示不需要cookie 
+        null);  // null表示不额外增加js接口，和系统组件保持一致，将接口加在TbJsBridge下
+</pre>
+        <h3>2）javascript代码(FE)：</h3>
+<pre class="x-code">
+    var closePage = function(){
+        if(window.TbJsBridge && typeof TbJsBridge === 'function') {
+            TbJsBridge.closePage("我来自FE的自定义消息！");
+        }
+    };
+</pre>  
+        <h3>3）示例：</h3>        
+        <button onclick="closePage()">js interface:关闭页面</button> 
+
+        <h2>2、通过URL参数的方式</h2>
+        <h3>1）java代码(RD)：</h3>
+<pre class="x-code">
+    什么都不用写，在底层WebViewHelper中已经处理好了！
+</pre>  
+        <h3>2）html代码(FE)：</h3>
+<pre class="x-code">
+    &lt;a href="?jump=closewebview"&gt;url参数:关闭页面&lt;/a&gt;
+</pre>  
+        <h3>3）示例：</h3>        
+	    <a href="?jump=closewebview">url参数:关闭页面</a>
+	</div>	
+
+
+    <div class="x-module" id="custom-js-interface">
+        <h1>二、为FE自定义js接口（非window.TbJsBridge）</h1>
+        如果是要给FE开放一个新的接口，如：根据一个表情ID，购买一个表情：FaceJsBridge.buy('139085613');方案有两种。
+        <h3>1）java代码(RD)：</h3>
+        <h4>方案一：</h4>
+<pre class="x-code">
+    1)、直接将buy接口定义到TbJsBridge.java类中：
+    public void buy(String faceID) { /* your code */ }
+
+    2)、调用如下接口：
+    HashMap&lt;String, JavascriptInterface&gt; mJsInterfaces = new HashMap&lt;String, JavascriptInterface&gt;();
+    mJsInterfaces.put("FaceJsBridge", new JavascriptInterface() {
+            @Override
+            public Object createJsInterface(Activity activity) {
+                return new TbJsBridge(activity);    // 注意这里reture的对象
+            }
+        });
+
+    TbWebViewActivity.startActivity(mContext,
+        "http://www.baidu.com",
+        null,            // null表示不需要cookie 
+        mJsInterfaces);  // 传入新的jsInterface
+</pre>  
+
+        <h4>方案二：</h4>
+<pre class="x-code">
+    1）、新定义一个FaceJsBridge.java文件，并在其中增加buy接口，同1.1
+
+    2)、在proguard.cfg中增加配置，禁止FaceJsBridge类中的接口被混淆，如：
+        -keep public class com.baidu.tieba.util.FaceJsBridge { *;}
+
+    3)、调用如下接口：
+    HashMap&lt;String, JavascriptInterface&gt; mJsInterfaces = new HashMap&lt;String, JavascriptInterface&gt;();
+    mJsInterfaces.put("FaceJsBridge", new JavascriptInterface() {
+            @Override
+            public Object createJsInterface(Activity activity) {
+                return new FaceJsBridge(activity);  // 注意这里reture的对象
+            }
+        });
+
+    TbWebViewActivity.startActivity(mContext,
+        "http://www.baidu.com",
+        null,            // null表示不需要cookie 
+        mJsInterfaces);  // 传入新的jsInterface
+</pre>        
+        <h3>2）javascript代码(FE)：</h3>
+<pre class="x-code">
+    var buyFace = function(faceID){
+        if(window.FaceJsBridge && typeof FaceJsBridge === 'function') {
+            FaceJsBridge.buy(faceID);
+        }
+    };
+</pre>  
+    </div>  
+
+
+    <div class="x-module" id="bring-cookie">
+        <h1>三、在webview中携带cookie</h1>
+        假设是要在baidu.com和google.com两个域下同步cookie，则可以这样来做：
+        <h3>1）java代码(RD)：</h3>
+        <h4>方案一：</h4>
+<pre class="x-code">
+    // 创建需要同步的cookie信息
+    HashMap&lt;String, String&gt; cookieMap = new HashMap&lt;String, String&gt;();
+    cookieMap.put("baidu.com", "uname=zxlie;timestamp=20140219");
+    cookieMap.put("google.com", "uname=zxlie;timestamp=20140219");
+
+    TbWebViewActivity.startActivity(mContext,
+        "http://www.baidu.com",
+        cookieMap,       // 传递cookie信息 
+        null);           // 不需要额外的js interface
+</pre>  
+    </div>  
+
+</body>
+</html>
